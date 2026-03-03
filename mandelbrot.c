@@ -5,8 +5,8 @@
 #include <time.h>
 
 
-#define height 650
-#define width 900
+#define height 1500
+#define width 2000
 
 #define COLOR_WHITE 0xffffff
 #define limit 2
@@ -35,7 +35,7 @@ char* rand_color(char hex[8]) {
 int check_mandelbrot(double real, double imag) {
     //scaling and resizing the real & imaginary values
     //prepei na to allaxw gia na exei ta values me to width kai height
-    real = real * 3.0 - 2.0;
+    real = real * 2.5 - 2.0;
     imag = imag * 2.0 - 1.0;
     
     double _Complex c = real + imag*I;
@@ -63,7 +63,6 @@ void draw_mandelbrot(SDL_Surface *psurface) {
         for (int i = 0; i < height; i++) {
             unsigned mandelbrot_color = check_mandelbrot((double) r/width, (double) i/height);
             
-            
             if(mandelbrot_color == max_iterations) {
                 SDL_Rect pixel = {r,i,1,1};
                 SDL_FillSurfaceRect(psurface, &pixel, COLOR_WHITE);
@@ -86,7 +85,8 @@ int main() {
     printf("Running...\n");
     srand(time(NULL));
 
-    if (!SDL_Init(SDL_INIT_VIDEO)) {
+    
+    if (SDL_Init(SDL_INIT_VIDEO) == 0) {
         perror("Error");
     }
 
@@ -100,20 +100,49 @@ int main() {
     draw_mandelbrot(psurface);
     SDL_UpdateWindowSurface(pwindow);
 
-
     //event handler
     int running = 1;
+
+    unsigned frames = 0;
+    Uint64 previousTime = 0;
+    Uint64 currentTime = 0;
+    char fps_text[64];
+
     SDL_Event event;
     while(running) {
         while (SDL_PollEvent(&event)) {
-
             switch (event.type) {
-                //future zoom edw 
                 case SDL_EVENT_QUIT:
                     running = 0;
                     break;
+                case SDL_EVENT_MOUSE_WHEEL:
+                    //getting the directions of the mouse
+                    float mouseX = event.wheel.mouse_x;
+                    float mouseY = event.wheel.mouse_y;
+
+                    //creating the zoom
+                    break;
             }
         }
+
+        currentTime = SDL_GetTicks();
+        frames++;
+        Uint64 deltaTime = currentTime - previousTime;
+        printf("Delta Time: %lu ms\n", deltaTime);
+        
+        //metraei se miliseconds
+        if (currentTime - previousTime >= 1000) {
+            
+            snprintf(fps_text, sizeof(fps_text), "Mandelbrot - FPS: %u", frames);
+            SDL_SetWindowTitle(pwindow, fps_text);
+            
+            if (!SDL_SetWindowTitle(pwindow, fps_text) || !SDL_SyncWindow(pwindow)) {
+                SDL_Log("SDL_SetWindowTitle failed: %s", SDL_GetError());
+            }
+            previousTime = currentTime;
+            frames = 0;
+        }
+        SDL_Delay(1000);
     }
     SDL_Quit();
     return 0;
