@@ -2,7 +2,6 @@
 #include <stdlib.h>
 #include <SDL3/SDL.h>
 #include <complex.h> 
-#include <time.h>
 
 
 #define height 1500
@@ -21,16 +20,6 @@ typedef struct {
 
 
 //---------------------------All the functions here---------------------------//
-char* rand_color(char hex[8]) {
-    color my_color = {rand() % 256, rand() % 256, rand() % 256};
-
-    //way to convert and store the random color in hex from rgb format
-    snprintf(hex, sizeof(&hex) + 2, "0x%02x%02x%02x", my_color.r, my_color.g, my_color.b);
-    printf("Random color: Red = %d, Green = %d, Blue = %d\n", my_color.r, my_color.g, my_color.b);
-    printf("Hexadecimal representation: %s\n", hex);
-
-    return hex;
-}
 
 int check_mandelbrot(double real, double imag) {
     //scaling and resizing the real & imaginary values
@@ -52,13 +41,6 @@ int check_mandelbrot(double real, double imag) {
 }
 
 void draw_mandelbrot(SDL_Surface *psurface) {
-    unsigned int hex_value;
-    char COLLOR_RANDOM[8];
-
-    rand_color(COLLOR_RANDOM);
-    //auth h sscan kanei kati malakies kai diavazei apo string kai kanei oti thes
-    sscanf(COLLOR_RANDOM, "%x", &hex_value);
-
     for (int r = 0; r < width; r++) {
         for (int i = 0; i < height; i++) {
             unsigned mandelbrot_color = check_mandelbrot((double) r/width, (double) i/height);
@@ -72,7 +54,8 @@ void draw_mandelbrot(SDL_Surface *psurface) {
                 unsigned red = (mandelbrot_color * 255) / max_iterations;
                 unsigned green = (mandelbrot_color * 255) / max_iterations;
                 unsigned blue = (mandelbrot_color * 255) / max_iterations;
-                
+
+                //cant understand this color value yet...
                 unsigned int color_value = (red << 16) | (green << 8) | blue;
                 SDL_Rect pixel = {r,i,1,1};
                 SDL_FillSurfaceRect(psurface, &pixel, color_value);
@@ -81,10 +64,27 @@ void draw_mandelbrot(SDL_Surface *psurface) {
     }
 }
 
+void events(int *prunning) {
+    SDL_Event event;
+
+    while (SDL_PollEvent(&event)) {
+        switch (event.type) {
+            case SDL_EVENT_QUIT:
+                *prunning = 0;
+                break;
+            case SDL_EVENT_MOUSE_WHEEL:
+                //getting the directions of the mouse
+                float mouseX = event.wheel.mouse_x;
+                float mouseY = event.wheel.mouse_y;
+
+                //creating the zoom
+                break;
+        }
+    }
+}
+
 int main() {
     printf("Running...\n");
-    srand(time(NULL));
-
     
     if (SDL_Init(SDL_INIT_VIDEO) == 0) {
         perror("Error");
@@ -92,57 +92,49 @@ int main() {
 
     //sdl_window is a struct thats why the "weird" syntax
     SDL_Window *pwindow;
-    pwindow = SDL_CreateWindow("Mandelbrot Set", width, height, SDL_WINDOW_RESIZABLE);
+    pwindow = SDL_CreateWindow("", width, height, SDL_WINDOW_RESIZABLE);
 
     SDL_Surface *psurface;
     psurface = SDL_GetWindowSurface(pwindow);
+
+    SDL_Renderer *prender;
+    prender = SDL_CreateRenderer(pwindow, NULL);
+    SDL_SetRenderLogicalPresentation(prender, width, height, SDL_LOGICAL_PRESENTATION_LETTERBOX);
+    
     
     draw_mandelbrot(psurface);
     SDL_UpdateWindowSurface(pwindow);
-
-    //event handler
+    printf("Succesfully created the mandelbrot set\n");
+    
     int running = 1;
 
     unsigned frames = 0;
     Uint64 previousTime = 0;
-    Uint64 currentTime = 0;
-    char fps_text[64];
+    char fps_text[30];
 
     SDL_Event event;
     while(running) {
-        while (SDL_PollEvent(&event)) {
-            switch (event.type) {
-                case SDL_EVENT_QUIT:
-                    running = 0;
-                    break;
-                case SDL_EVENT_MOUSE_WHEEL:
-                    //getting the directions of the mouse
-                    float mouseX = event.wheel.mouse_x;
-                    float mouseY = event.wheel.mouse_y;
+        Uint64 currentTime = SDL_GetTicks();
 
-                    //creating the zoom
-                    break;
-            }
-        }
+        //runs the events (mouse, keyboard, etc)
+        events(&running);
 
-        currentTime = SDL_GetTicks();
-        frames++;
-        Uint64 deltaTime = currentTime - previousTime;
-        printf("Delta Time: %lu ms\n", deltaTime);
         
+        
+        //fps counter
+        frames++;        
         //metraei se miliseconds
-        if (currentTime - previousTime >= 1000) {
-            
+        if (currentTime >= previousTime + 1000) {
+            //vazei to Uint se array gt to sdl gamietai kai thelei array sto window title
             snprintf(fps_text, sizeof(fps_text), "Mandelbrot - FPS: %u", frames);
             SDL_SetWindowTitle(pwindow, fps_text);
             
             if (!SDL_SetWindowTitle(pwindow, fps_text) || !SDL_SyncWindow(pwindow)) {
                 SDL_Log("SDL_SetWindowTitle failed: %s", SDL_GetError());
             }
-            previousTime = currentTime;
             frames = 0;
+            previousTime = currentTime;
         }
-        SDL_Delay(1000);
     }
     SDL_Quit();
     return 0;
