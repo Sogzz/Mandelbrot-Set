@@ -64,8 +64,8 @@ void draw_mandelbrot(SDL_Surface *psurface) {
     }
 }
 
-void events(int *prunning) {
-    SDL_Event event;
+void events(int *prunning, SDL_Renderer *prender) {
+    SDL_Event event;    
 
     while (SDL_PollEvent(&event)) {
         switch (event.type) {
@@ -78,6 +78,56 @@ void events(int *prunning) {
                 float mouseY = event.wheel.mouse_y;
 
                 //creating the zoom
+
+                break;
+            case SDL_EVENT_MOUSE_BUTTON_DOWN:
+                //getting the position of the mouse
+                double clickX = event.button.x;
+                double clickY = event.button.y;
+                printf("Mouse clicked at: (%f, %f)\n", clickX, clickY);
+
+                //Metatrpoume raw pixel coordinates se normalized range [0,1]
+                double normalized_real = clickX / (double)width;
+                double normalized_im = clickY / (double)height;
+                printf("Normalized cords: (%f, %f)\n", normalized_real, normalized_im);
+
+                //apo normalized sto scale tou mandelbrot pou evala
+                //mporei na ta kanw define pio panw gia poio eukolh allagh
+                double real = normalized_real * 2.5 - 2.0;
+                double imag = normalized_im * 2.0 - 1.0;
+                printf("Mandelbroted cords: (%f, %f)\n\n", real, imag);
+
+                //xekinaei h sunartisi mandelbrot apo auto to shmeio
+                double _Complex c = real + imag*I;
+                double _Complex z = 0;
+
+                //Track previous point so we can draw a line
+                //mporei kai na ginei pinakas auto sto mellon
+                double prev_X = clickX;
+                double prev_Y = clickY;
+
+                for (int i = 0; i < max_iterations; i++) {
+                    z = cpow(z, 2) + c;
+
+                    //apo normalized kai scaled metatrepoume piso se raw pixel values
+                    clickX = (creal(z) + 2.0)/2.5 * (double)width; 
+                    clickY = (cimag(z) + 1.0)/2.0 * (double)height;
+
+                    //creating the lines
+                    
+                    SDL_SetRenderDrawColor(prender, 255, 0, 0, 255); //rgba
+                    SDL_RenderLine(prender, prev_X, prev_Y , clickX, clickY);
+                    SDL_RenderPresent(prender);
+                    SDL_Delay(1); // Delay to visualize the line drawing
+                    printf("Drawed between cords: (%f, %f) -> (%f, %f)\n", prev_X, prev_Y, clickX, clickY);
+
+                    prev_X = clickX;
+                    prev_Y = clickY;
+
+                        
+                        
+                    
+                }
                 break;
         }
     }
@@ -87,6 +137,7 @@ int main() {
     printf("Running...\n");
     
     if (SDL_Init(SDL_INIT_VIDEO) == 0) {
+        //to eida apo enan roso kai eipe einai kalo
         perror("Error");
     }
 
@@ -112,14 +163,11 @@ int main() {
     Uint64 previousTime = 0;
     char fps_text[30];
 
-    SDL_Event event;
     while(running) {
         Uint64 currentTime = SDL_GetTicks();
 
         //runs the events (mouse, keyboard, etc)
-        events(&running);
-
-        
+        events(&running, prender);        
         
         //fps counter
         frames++;        
