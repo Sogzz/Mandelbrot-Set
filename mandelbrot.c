@@ -40,14 +40,17 @@ int check_mandelbrot(double real, double imag) {
     return max_iterations;
 }
 
-void draw_mandelbrot(SDL_Surface *psurface) {
+void draw_mandelbrot(SDL_Renderer *prender) {
+    SDL_RenderClear(prender);
     for (int r = 0; r < width; r++) {
         for (int i = 0; i < height; i++) {
             unsigned mandelbrot_color = check_mandelbrot((double) r/width, (double) i/height);
             
             if(mandelbrot_color == max_iterations) {
-                SDL_Rect pixel = {r,i,1,1};
-                SDL_FillSurfaceRect(psurface, &pixel, COLOR_WHITE);
+                SDL_SetRenderDrawColor(prender, 255, 255, 255, 255); //rgba
+
+                SDL_FRect pixel = {r,i,1,1};
+                SDL_RenderFillRect(prender, &pixel);
             } else if (mandelbrot_color < max_iterations && mandelbrot_color > 0) {
 
                 //Create colors based on the number of iterations (grey scale)
@@ -56,12 +59,14 @@ void draw_mandelbrot(SDL_Surface *psurface) {
                 unsigned blue = (mandelbrot_color * 255) / max_iterations;
 
                 //cant understand this color value yet...
-                unsigned int color_value = (red << 16) | (green << 8) | blue;
-                SDL_Rect pixel = {r,i,1,1};
-                SDL_FillSurfaceRect(psurface, &pixel, color_value);
+                SDL_SetRenderDrawColor(prender, red, green, blue, 255); //rgba
+                SDL_FRect pixel = {r,i,1,1};
+                SDL_RenderFillRect(prender, &pixel);
+                
             }
         }
     }
+    SDL_RenderPresent(prender);
 }
 
 void events(int *prunning, SDL_Renderer *prender) {
@@ -102,8 +107,7 @@ void events(int *prunning, SDL_Renderer *prender) {
                 double _Complex z = 0;
 
                 //Track previous point so we can draw a line
-                //mporei kai na ginei pinakas auto sto mellon
-                double prev_cords[max_iterations][2] = {{clickX, clickY}};
+                float prev_cords[max_iterations][2] = {{clickX, clickY}};
 
                 for (int i = 0; i < max_iterations; i++) {
                     z = cpow(z, 2) + c;
@@ -123,12 +127,13 @@ void events(int *prunning, SDL_Renderer *prender) {
                         prev_cords[i+1][0] = clickX;
                         prev_cords[i+1][1] = clickY;
                     }
-                }
-                SDL_SetRenderDrawColor(prender, 255, 0, 0, 255); //rgba
-                SDL_RenderLines(prender, (const SDL_FPoint *)prev_cords, max_iterations);
-                SDL_RenderPresent(prender);
 
+                    SDL_SetRenderDrawColor(prender, 255, 0, 0, 255); //rgba
+                }
+                SDL_RenderLines(prender, (const SDL_FPoint *)prev_cords, max_iterations);
                 SDL_Delay(1); // Delay to visualize the line drawing
+                SDL_RenderPresent(prender);
+                
                 break;
         }
     }
@@ -146,19 +151,17 @@ int main() {
     SDL_Window *pwindow;
     pwindow = SDL_CreateWindow("", width, height, SDL_WINDOW_RESIZABLE);
 
-    SDL_Surface *psurface;
-    psurface = SDL_GetWindowSurface(pwindow);
+
 
     SDL_Renderer *prender;
     prender = SDL_CreateRenderer(pwindow, NULL);
     if(!prender) {
         SDL_Log("SDL_CreateRenderer failed: %s", SDL_GetError());
     }
-    SDL_SetRenderLogicalPresentation(prender, width, height, SDL_LOGICAL_PRESENTATION_LETTERBOX);
+    //SDL_SetRenderLogicalPresentation(prender, width, height, SDL_LOGICAL_PRESENTATION_LETTERBOX);
     
     
-    draw_mandelbrot(psurface);
-    SDL_UpdateWindowSurface(pwindow);
+    draw_mandelbrot(prender);
     printf("Succesfully created the mandelbrot set\n");
     
     int running = 1;
