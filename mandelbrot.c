@@ -113,7 +113,7 @@ void events(int *prunning, SDL_Renderer *prender) {
                     z = cpow(z, 2) + c;
 
                     //apo normalized kai scaled metatrepoume piso se raw pixel values
-                    clickX = (creal(z) + 2.0)/2.5 * (double)width; 
+                    clickX = (creal(z) + 2.0)/2.5 * (double)width;
                     clickY = (cimag(z) + 1.0)/2.0 * (double)height;
                     
                     //if it exceeds the limit breaks the loop
@@ -122,14 +122,14 @@ void events(int *prunning, SDL_Renderer *prender) {
                     }
                     
                     printf("Drawed between cords: (%f, %f) -> (%f, %f)\n", prev_cords[i][0], prev_cords[i][1], clickX, clickY);
-
+                    //assings the cords to the 2-dimentional array
                     if(i < max_iterations-1) {
                         prev_cords[i+1][0] = clickX;
                         prev_cords[i+1][1] = clickY;
                     }
-
                     SDL_SetRenderDrawColor(prender, 255, 0, 0, 255); //rgba
                 }
+                //draw and visualize the lines
                 SDL_RenderLines(prender, (const SDL_FPoint *)prev_cords, max_iterations);
                 SDL_Delay(1); // Delay to visualize the line drawing
                 SDL_RenderPresent(prender);
