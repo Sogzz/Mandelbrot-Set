@@ -103,8 +103,7 @@ void events(int *prunning, SDL_Renderer *prender) {
 
                 //Track previous point so we can draw a line
                 //mporei kai na ginei pinakas auto sto mellon
-                double prev_X = clickX;
-                double prev_Y = clickY;
+                double prev_cords[max_iterations][2] = {{clickX, clickY}};
 
                 for (int i = 0; i < max_iterations; i++) {
                     z = cpow(z, 2) + c;
@@ -112,22 +111,24 @@ void events(int *prunning, SDL_Renderer *prender) {
                     //apo normalized kai scaled metatrepoume piso se raw pixel values
                     clickX = (creal(z) + 2.0)/2.5 * (double)width; 
                     clickY = (cimag(z) + 1.0)/2.0 * (double)height;
-
-                    //creating the lines
                     
-                    SDL_SetRenderDrawColor(prender, 255, 0, 0, 255); //rgba
-                    SDL_RenderLine(prender, prev_X, prev_Y , clickX, clickY);
-                    SDL_RenderPresent(prender);
-                    SDL_Delay(1); // Delay to visualize the line drawing
-                    printf("Drawed between cords: (%f, %f) -> (%f, %f)\n", prev_X, prev_Y, clickX, clickY);
-
-                    prev_X = clickX;
-                    prev_Y = clickY;
-
-                        
-                        
+                    //if it exceeds the limit breaks the loop
+                    if(cabs(z) > limit) {
+                        break;
+                    }
                     
+                    printf("Drawed between cords: (%f, %f) -> (%f, %f)\n", prev_cords[i][0], prev_cords[i][1], clickX, clickY);
+
+                    if(i < max_iterations-1) {
+                        prev_cords[i+1][0] = clickX;
+                        prev_cords[i+1][1] = clickY;
+                    }
                 }
+                SDL_SetRenderDrawColor(prender, 255, 0, 0, 255); //rgba
+                SDL_RenderLines(prender, (const SDL_FPoint *)prev_cords, max_iterations);
+                SDL_RenderPresent(prender);
+
+                SDL_Delay(1); // Delay to visualize the line drawing
                 break;
         }
     }
@@ -137,7 +138,7 @@ int main() {
     printf("Running...\n");
     
     if (SDL_Init(SDL_INIT_VIDEO) == 0) {
-        //to eida apo enan roso kai eipe einai kalo
+        //to eida apo enan roso kai eipe einai kalo to perror
         perror("Error");
     }
 
@@ -150,6 +151,9 @@ int main() {
 
     SDL_Renderer *prender;
     prender = SDL_CreateRenderer(pwindow, NULL);
+    if(!prender) {
+        SDL_Log("SDL_CreateRenderer failed: %s", SDL_GetError());
+    }
     SDL_SetRenderLogicalPresentation(prender, width, height, SDL_LOGICAL_PRESENTATION_LETTERBOX);
     
     
