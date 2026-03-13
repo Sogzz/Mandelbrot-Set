@@ -44,6 +44,10 @@ void draw_mandelbrot(SDL_Renderer *prender, SDL_Texture *ptexture, int *pcurrent
     double min_real = center_real - (range_real / 2.0);
     double min_imag = center_imag - (range_imag / 2.0);
 
+
+    //this pragma tells the compiler to parallelize the outer loop using OpenMP, 
+    //with dynamic scheduling to balance the workload across threads
+    #pragma omp parallel for schedule(dynamic)
     for (int i = 0; i < *pcurrent_height; i++) {
         for (int r = 0; r < *pcurrent_width; r++) {
             //Map the pixel (x, y) to complex plane (c_real, c_imag)
