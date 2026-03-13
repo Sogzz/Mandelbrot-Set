@@ -9,7 +9,7 @@
 #define width 2000
 
 #define COLOR_WHITE 0xffffff
-#define limit 2
+#define limit 2.0
 #define max_iterations 100
 
 //All the structs and future structs (mallon) here
@@ -25,7 +25,7 @@ typedef struct {
 unsigned check_mandelbrot_point(double c_real, double c_imag) {
     double z_real = 0, z_imag = 0;
     unsigned iterations = 0;
-    while (z_real*z_real + z_imag*z_imag <= 4.0 && iterations < max_iterations) {
+    while (z_real*z_real + z_imag*z_imag <= 2.0*limit && iterations < max_iterations) {
         double next_real = z_real*z_real - z_imag*z_imag + c_real;
         z_imag = 2.0 * z_real * z_imag + c_imag;
         z_real = next_real;
@@ -289,7 +289,7 @@ int main() {
             previousTime = currentTime;
         }
     }
-    printf("Destroy everything...except uncle mike...he always brought us sweets\n");
+    printf("Destroy everything Maki...except uncle mike...he always brought us sweets\n");
     free(pixelBuffer);
     SDL_DestroyTexture(ptexture);
     SDL_DestroyRenderer(prender);
