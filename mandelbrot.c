@@ -22,71 +22,82 @@ typedef struct {
 
 //---------------------------All the functions here---------------------------//
 
-int check_mandelbrot(double real, double imag) {
-    //scaling and resizing the real & imaginary values
-    //prepei na to allaxw gia na exei ta values me to width kai height
-    real = real * 2.5 - 2.0;
-    imag = imag * 2.0 - 1.0;
-    
-    double _Complex c = real + imag*I;
-    double _Complex z = 0;
-
-    for (int i = 0; i < max_iterations; i++) {
-        z = cpow(z, 2) + c;
-        if (cabs(z) > limit) {
-            //returns ta iterations gia to xrwma
-            return i;
-        }
+unsigned check_mandelbrot_point(double c_real, double c_imag) {
+    double z_real = 0, z_imag = 0;
+    unsigned iterations = 0;
+    while (z_real*z_real + z_imag*z_imag <= 4.0 && iterations < max_iterations) {
+        double next_real = z_real*z_real - z_imag*z_imag + c_real;
+        z_imag = 2.0 * z_real * z_imag + c_imag;
+        z_real = next_real;
+        iterations++;
     }
-    return max_iterations;
+    return iterations;
 }
 
-void draw_mandelbrot(SDL_Renderer *prender, int *pcurrent_width, int *pcurrent_height) {
-    SDL_RenderClear(prender);
-    for (int r = 0; r < *pcurrent_width; r++) {
-        for (int i = 0; i < *pcurrent_height; i++) {
-            unsigned mandelbrot_color = check_mandelbrot((double) r/ *pcurrent_width, (double) i/ *pcurrent_height);
+void draw_mandelbrot(SDL_Renderer *prender, SDL_Texture *ptexture, int *pcurrent_width, int *pcurrent_height, uint32_t *pixelBuffer, double zoom, double center_real, double center_imag) {
+    
+    //Original viewing window 2.5 x 2.0 ([-2.0, 0.5]real axis and [-1.0, 1.0]imag axis)
+    double range_real = 2.5 / zoom;
+    double range_imag = 2.0 / zoom;
+
+    //Calculate the top-left corner of the complex plane based on the center and range
+    double min_real = center_real - (range_real / 2.0);
+    double min_imag = center_imag - (range_imag / 2.0);
+
+    for (int i = 0; i < *pcurrent_height; i++) {
+        for (int r = 0; r < *pcurrent_width; r++) {
+            //Map the pixel (x, y) to complex plane (c_real, c_imag)
+            //so we divide by the current width/height to get a normalized [0,1] range
+            //then scale to the current view range and add the minimum to shift to the correct location
+            double c_real = min_real + ((double)r / *pcurrent_width) * range_real;
+            double c_imag = min_imag + ((double)i / *pcurrent_height) * range_imag;
+
+            //Run the Mandelbrot algorithm for this specific point
+            unsigned iterations = check_mandelbrot_point(c_real, c_imag);
             
-            if(mandelbrot_color == max_iterations) {
-                SDL_SetRenderDrawColor(prender, 255, 255, 255, 255); //rgba
-
-                SDL_FRect pixel = {r,i,1,1};
-                SDL_RenderFillRect(prender, &pixel);
-            } else if (mandelbrot_color < max_iterations && mandelbrot_color > 0) {
-
-                //Create colors based on the number of iterations (grey scale)
-                unsigned red = (mandelbrot_color * 255) / max_iterations;
-                unsigned green = (mandelbrot_color * 255) / max_iterations;
-                unsigned blue = (mandelbrot_color * 255) / max_iterations;
-
-                //cant understand this color value yet...
-                SDL_SetRenderDrawColor(prender, red, green, blue, 255); //rgba
-                SDL_FRect pixel = {r,i,1,1};
-                SDL_RenderFillRect(prender, &pixel);
+            //Coloring type shit...
+            if (iterations == max_iterations) {
+                pixelBuffer[i * *pcurrent_width + r] = 0x000000FF; //Black
+            } else {
+                //Greyscale
+                uint8_t color_val = (uint8_t)((double)iterations / max_iterations * 255);
                 
+                //Bit-wise operations that packs the bits into RGBA8888 (0xRRGGBBAA)
+                //dont understand this quite well yet
+                pixelBuffer[i * (*pcurrent_width) + r] = (color_val << 24) | (color_val << 16) | (color_val << 8) | 0xFF;
             }
         }
     }
+
+    //Update and present type shit...
+    SDL_UpdateTexture(ptexture, NULL, pixelBuffer, *pcurrent_width * sizeof(uint32_t));
+    SDL_RenderClear(prender);
+    SDL_RenderTexture(prender, ptexture, NULL, NULL);
     SDL_RenderPresent(prender);
 }
 
-void events(int *prunning, SDL_Renderer *prender, int *pcurrent_width, int *pcurrent_height, float *pzoom) {
+/*
+ * `pixelBuffer` is dereferenced when the drawing dimensions change, so we
+ * actually need a pointer-to-pointer here.  The caller passes `&pixelBuffer`
+ * and we reallocate/storage when the zoom changes.
+ */
+void events(int *prunning, SDL_Renderer *prender, SDL_Texture *ptexture, int *pcurrent_width, int *pcurrent_height, float *pzoom, uint32_t **ppixelBuffer, double *pcenter_real, double *pcenter_imag) {
+    uint32_t *pixelBuffer = *ppixelBuffer;
     SDL_Event event;    
     /* Accumulate mouse-wheel changes and redraw once after processing all events */
     int wheel_scrolled = 0;
     float wheel_factor = 1.0f;
+    int times = 0; // count wheel events in this batch
 
     while (SDL_PollEvent(&event)) {
-        int times = 0; // count wheel events in this batch
         switch (event.type) {
             case SDL_EVENT_QUIT:
                 *prunning = 0;
                 break;
             case SDL_EVENT_MOUSE_WHEEL:
-            printf("Scrolling\n");
-                /* if (event.wheel.direction == SDL_MOUSEWHEEL_FLIPPED) {
-                    event.wheel.x *= -1;
-                    event.wheel.y *= -1;
+                /* if (event.wheel.direction == SDL_MOUSEWHEEL_NORMAL) {
+                    event.wheel.x *= 0.9;
+                    event.wheel.y *= 0.9;
                 } */
 
                 if (event.wheel.y != 0) {
@@ -148,31 +159,64 @@ void events(int *prunning, SDL_Renderer *prender, int *pcurrent_width, int *pcur
                     SDL_RenderPresent(prender);
                     
                 } else if (event.button.button == SDL_BUTTON_RIGHT) {
-                    // simple right-click: zoom out centered at click
+                    //Getting the mouse position on click
                     int clickX = event.button.x;
                     int clickY = event.button.y;
-                    (void)clickX; (void)clickY; // placeholder if you want to center on click later
 
-                    float factor = 1.1f; // zoom out
-                    *pzoom *= factor;
-                    *pcurrent_width = (int)fmin(width, (*pcurrent_width) * factor);
-                    *pcurrent_height = (int)fmin(height, (*pcurrent_height) * factor);
+                    //normalizing the cords [0,1] range
+                    double normalized_real = (double)clickX / (double)(*pcurrent_width);
+                    double normalized_imag = (double)clickY / (double)(*pcurrent_height);
+                    
+                    //doing the same as before but with the current zoom and center
+                    double range_real = 2.5 / *pzoom;
+                    double range_imag = 2.0 / *pzoom;
 
+                    //dividing by 2
+                    double min_real = *pcenter_real - (range_real / 2.0);
+                    double min_imag = *pcenter_imag - (range_imag / 2.0);
+                    
+                    //Calculate exact clicked coordinate on the complex plane
+                    double real = min_real + (normalized_real * range_real);
+                    double imag = min_imag + (normalized_imag * range_imag);
+                    
+                    //Set new center to exactly where the user clicked
+                    *pcenter_real = real;
+                    *pcenter_imag = imag;
+                    
+                    //zoom in by a factor of 2.0 (adjustable)
+                    *pzoom *= 2.0f;
+                    
                     SDL_RenderClear(prender);
-                    draw_mandelbrot(prender, pcurrent_width, pcurrent_height);
+                    draw_mandelbrot(prender, ptexture, pcurrent_width, pcurrent_height, *ppixelBuffer, *pzoom, *pcenter_real, *pcenter_imag);
                 }
                 break;
         }
     }
     /* If any wheel events occurred, apply accumulated factor and redraw once */
-    if (wheel_scrolled) {
+    /* if (wheel_scrolled) {
         *pzoom *= wheel_factor;
-        *pcurrent_width = (int)fmax(100, (*pcurrent_width) * wheel_factor);
-        *pcurrent_height = (int)fmax(100, (*pcurrent_height) * wheel_factor);
+        int new_w = (int)fmax(1.0f, fmin(width, (*pcurrent_width) * wheel_factor));
+        int new_h = (int)fmax(1.0f, fmin(height, (*pcurrent_height) * wheel_factor));
+        *pcurrent_width = new_w;
+        *pcurrent_height = new_h;
 
-        SDL_RenderClear(prender);
-        draw_mandelbrot(prender, pcurrent_width, pcurrent_height);
-    }
+        free(pixelBuffer);
+        pixelBuffer = malloc(new_w * new_h * sizeof *pixelBuffer);
+        if (!pixelBuffer) {
+            SDL_Log("out of memory allocating pixel buffer");
+            *prunning = 0;
+            return;
+        }
+        *ppixelBuffer = pixelBuffer;
+
+        SDL_DestroyTexture(ptexture);
+        ptexture = SDL_CreateTexture(prender, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_STREAMING, *pcurrent_width, *pcurrent_height);
+
+        int len = new_w * new_h;
+        for (int i = 0; i < len; ++i) pixelBuffer[i] = 0;
+
+        draw_mandelbrot(prender, ptexture, pcurrent_width, pcurrent_height, pixelBuffer);
+    } */
 }
 
 int main() {
@@ -180,7 +224,10 @@ int main() {
 
     int current_height = height;
     int current_width = width;
-    float zoom = 1.0;
+
+    float zoom = 1.0f;
+    double center_real = -0.7;
+    double center_imag = 0.0;
     
     if (SDL_Init(SDL_INIT_VIDEO) == 0) {
         //to eida apo enan roso kai eipe einai kalo to perror
@@ -206,10 +253,10 @@ int main() {
     }
     //SDL_SetRenderLogicalPresentation(prender, width, height, SDL_LOGICAL_PRESENTATION_STRETCH);
 
-    SDL_Texture* texture = SDL_CreateTexture(prender, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_STREAMING, width, height);
-    uint32_t *pixelBuffer = malloc(width * height * sizeof(uint32_t));
+    SDL_Texture *ptexture = SDL_CreateTexture(prender, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_STREAMING, current_width, current_height);
+    uint32_t *pixelBuffer = malloc(current_width * current_height * sizeof(uint32_t));
 
-    draw_mandelbrot(prender, &current_width, &current_height);
+    draw_mandelbrot(prender, ptexture, &current_width, &current_height, pixelBuffer, zoom, center_real, center_imag);
     printf("Succesfully created the mandelbrot set\n");
     
     int running = 1;
@@ -221,7 +268,7 @@ int main() {
         Uint64 currentTime = SDL_GetTicks();
 
         //runs the events (mouse, keyboard, etc)
-        events(&running, prender, &current_width, &current_height, &zoom);        
+        events(&running, prender, ptexture, &current_width, &current_height, &zoom, &pixelBuffer, &center_real, &center_imag);        
         
         //fps counter
         frames++;        
@@ -238,6 +285,11 @@ int main() {
             previousTime = currentTime;
         }
     }
+    printf("Destroy everything...except uncle mike...he always brought us sweets\n");
+    free(pixelBuffer);
+    SDL_DestroyTexture(ptexture);
+    SDL_DestroyRenderer(prender);
+    SDL_DestroyWindow(pwindow);
     SDL_Quit();
     return 0;
 }
