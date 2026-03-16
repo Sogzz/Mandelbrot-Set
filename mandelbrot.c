@@ -8,7 +8,6 @@
 #define height 1500
 #define width 2000
 
-#define COLOR_WHITE 0xffffff
 #define limit 2.0
 #define max_iterations 100
 
@@ -22,10 +21,10 @@ typedef struct {
 
 //---------------------------All the functions here---------------------------//
 
-unsigned check_mandelbrot_point(double c_real, double c_imag) {
+unsigned check_mandelbrot_point(double c_real, double c_imag, int max_iteration) {
     double z_real = 0, z_imag = 0;
     unsigned iterations = 0;
-    while (z_real*z_real + z_imag*z_imag <= 2.0*limit && iterations < max_iterations) {
+    while (z_real*z_real + z_imag*z_imag <= 2.0*limit && iterations < max_iteration) {
         double next_real = z_real*z_real - z_imag*z_imag + c_real;
         z_imag = 2.0 * z_real * z_imag + c_imag;
         z_real = next_real;
@@ -34,7 +33,7 @@ unsigned check_mandelbrot_point(double c_real, double c_imag) {
     return iterations;
 }
 
-void draw_mandelbrot(SDL_Renderer *prender, SDL_Texture *ptexture, int *pcurrent_width, int *pcurrent_height, uint32_t *pixelBuffer, double zoom, double center_real, double center_imag) {
+void draw_mandelbrot(SDL_Renderer *prender, SDL_Texture *ptexture, int *pcurrent_width, int *pcurrent_height, uint32_t *pixelBuffer, double zoom, double center_real, double center_imag, int max_iteration) {
     
     //Original viewing window 2.5 x 2.0 ([-2.0, 0.5]real axis and [-1.0, 1.0]imag axis)
     double range_real = 2.5 / zoom;
@@ -57,14 +56,14 @@ void draw_mandelbrot(SDL_Renderer *prender, SDL_Texture *ptexture, int *pcurrent
             double c_imag = min_imag + ((double)i / *pcurrent_height) * range_imag;
 
             //Run the Mandelbrot algorithm for this specific point
-            unsigned iterations = check_mandelbrot_point(c_real, c_imag);
+            unsigned iterations = check_mandelbrot_point(c_real, c_imag, max_iteration);
             
             //Coloring type shit...
-            if (iterations == max_iterations) {
+            if (iterations == max_iteration) {
                 pixelBuffer[i * *pcurrent_width + r] = 0x000000FF; //Black
             } else {
                 //Greyscale
-                uint8_t color_val = (uint8_t)((double)iterations / max_iterations * 255);
+                uint8_t color_val = (uint8_t)((double)iterations / max_iteration * 255);
                 
                 //Bit-wise operations that packs the bits into RGBA8888 (0xRRGGBBAA)
                 //dont understand this quite well yet
@@ -85,7 +84,7 @@ void draw_mandelbrot(SDL_Renderer *prender, SDL_Texture *ptexture, int *pcurrent
  * actually need a pointer-to-pointer here.  The caller passes `&pixelBuffer`
  * and we reallocate/storage when the zoom changes.
  */
-void events(int *prunning, SDL_Renderer *prender, SDL_Texture *ptexture, int *pcurrent_width, int *pcurrent_height, float *pzoom, uint32_t **ppixelBuffer, double *pcenter_real, double *pcenter_imag) {
+void events(int *prunning, SDL_Renderer *prender, SDL_Texture *ptexture, int *pcurrent_width, int *pcurrent_height, float *pzoom, uint32_t **ppixelBuffer, double *pcenter_real, double *pcenter_imag, int *pmax_iterations) {
     uint32_t *pixelBuffer = *ppixelBuffer;
     SDL_Event event;    
     /* Accumulate mouse-wheel changes and redraw once after processing all events */
@@ -189,9 +188,11 @@ void events(int *prunning, SDL_Renderer *prender, SDL_Texture *ptexture, int *pc
                     
                     //zoom in by a factor of 2.0 (adjustable)
                     *pzoom *= 2.0f;
+                    //Increase max iterations based on zoom level to reveal more detail
+                    *pmax_iterations = 100 + (int)(log10(*pzoom) * 300);
                     
                     SDL_RenderClear(prender);
-                    draw_mandelbrot(prender, ptexture, pcurrent_width, pcurrent_height, *ppixelBuffer, *pzoom, *pcenter_real, *pcenter_imag);
+                    draw_mandelbrot(prender, ptexture, pcurrent_width, pcurrent_height, *ppixelBuffer, *pzoom, *pcenter_real, *pcenter_imag, *pmax_iterations);
                 }
                 break;
         }
@@ -232,6 +233,7 @@ int main() {
     float zoom = 1.0f;
     double center_real = -0.7;
     double center_imag = 0.0;
+    int max_iteration = 128;
     
     if (SDL_Init(SDL_INIT_VIDEO) == 0) {
         //to eida apo enan roso kai eipe einai kalo to perror
@@ -260,7 +262,7 @@ int main() {
     SDL_Texture *ptexture = SDL_CreateTexture(prender, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_STREAMING, current_width, current_height);
     uint32_t *pixelBuffer = malloc(current_width * current_height * sizeof(uint32_t));
 
-    draw_mandelbrot(prender, ptexture, &current_width, &current_height, pixelBuffer, zoom, center_real, center_imag);
+    draw_mandelbrot(prender, ptexture, &current_width, &current_height, pixelBuffer, zoom, center_real, center_imag, max_iteration);
     printf("Succesfully created the mandelbrot set\n");
     
     int running = 1;
@@ -272,10 +274,11 @@ int main() {
         Uint64 currentTime = SDL_GetTicks();
 
         //runs the events (mouse, keyboard, etc)
-        events(&running, prender, ptexture, &current_width, &current_height, &zoom, &pixelBuffer, &center_real, &center_imag);        
+        events(&running, prender, ptexture, &current_width, &current_height, &zoom, &pixelBuffer, &center_real, &center_imag, &max_iteration);        
         
         //fps counter
-        frames++;        
+        frames++;     
+           
         //metraei se miliseconds
         if (currentTime >= previousTime + 1000) {
             //vazei to Uint se array gt to sdl gamietai kai thelei array sto window title
