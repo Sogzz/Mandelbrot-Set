@@ -33,7 +33,7 @@ void grayscale_palette(uint32_t *color_palette) {
 
 void lava_palette(uint32_t *color_palette) {
     for (int i = 0; i < 256; i++) {
-        uint8_t r = (i < 128) ? i * 2 : 255;
+        uint8_t r = (i * 4 > 255) ? 255 : i * 4;
         uint8_t g = (i < 128) ? 0 : (i - 128) * 2;
         color_palette[i] = (r << 24) | (g << 16) | (0 << 8) | 0xFF;
     }
@@ -41,8 +41,59 @@ void lava_palette(uint32_t *color_palette) {
 
 void ocean_palette(uint32_t *color_palette) {
     for (int i = 0; i < 256; i++) {
-        uint8_t b = (uint8_t)((double)i / 255.0 * 255.0);
-        color_palette[i] = (0 << 24) | ((i/2) << 16) | (b << 8) | 0xFF; // Deep blue to cyan
+        uint8_t r, g, b;
+
+        if (i < 50) { 
+            // 1. Deep Tropical Blue (Dark Blue -> Electric Blue)
+            // We start brighter so the "subtle" early iterations are visible
+            r = 0;
+            g = i * 2;          // Rapidly adding green to get toward Cyan
+            b = 100 + (i * 3);  // Starting at 100 (visible blue) instead of 0
+        } 
+        else if (i < 180) { 
+            // 2. The Lagoon (Electric Cyan -> Bright Turquoise)
+            // This is the Moana "Glow"
+            r = (i - 50) / 2;   // Lightening up the water
+            g = 100 + (i - 50); // High green for that tropical punch
+            b = 255;            // Max blue
+        } 
+        else { 
+            // 3. The Coral Reef (White Sand / Pink Coral)
+            // High values here will make the edges of the Mandelbrot "shimmer"
+            r = 100 + (i - 180) * 2; 
+            g = 255; 
+            b = 255 - (i - 180); // Dropping blue while red rises creates a peach/white glow
+        }
+        color_palette[i] = (r << 24) | (g << 16) | (b << 8) | 0xFF; // Deep blue to cyan
+    }
+}
+
+void nature_palette(uint32_t *color_palette) {
+    for (int i = 0; i < 256; i++) {
+        uint8_t r = 0, g = 0, b = 0;
+
+
+        // 1. The "Green Base"
+        // We start green at 60 so the outer edges are already a visible forest green.
+        // It hits 255 (max brightness) very quickly (by index 130).
+        g = (60 + i * 1.5 > 255) ? 255 : 60 + i * 1.5;
+
+        // 2. The "Sunlight" (Red)
+        // We keep it low at first for deep forest colors.
+        // After the midway point (i=128), we pump Red to turn Green into Yellow/Lime.
+        if (i < 128) {
+            r = i / 4; // Subtle earthy undertone
+        } else {
+            // This creates the "Golden Sun" hitting the leaves
+            r = (i - 128) * 2; 
+        }
+
+        // 3. The "Shadows" (Blue)
+        // We keep Blue very low (around 20-40) to keep the greens "warm."
+        // If Blue gets too high, it looks like an ocean, not a forest.
+        b = 20 + (i / 10);
+
+        color_palette[i] = ((uint32_t)r << 24) | ((uint32_t)g << 16) | ((uint32_t)b << 8) | 0xFF;
     }
 }
 
@@ -90,6 +141,7 @@ void draw_mandelbrot(SDL_Renderer *prender, SDL_Texture *ptexture, int *pcurrent
                 uint8_t color_val = (uint8_t)((double)iterations / max_iteration * 255);
                 //Map the index between the [0, 255] range
                 int idx = iterations * 255 / max_iteration;
+                //int idx = (iterations * 8) % 256; (more vivid colors but funky)
                 pixelBuffer[i * (*pcurrent_width) + r] = color_palette[idx];
             }
         }
@@ -231,7 +283,10 @@ void events(int *prunning, SDL_Renderer *prender, SDL_Texture *ptexture, int *pc
                     ocean_palette(color_palette);
                     draw_mandelbrot(prender, ptexture, pcurrent_width, pcurrent_height, *ppixelBuffer, *pzoom, *pcenter_real, *pcenter_imag, *pmax_iterations, color_palette);
                 }
-                //if (event.key.key == SDLK_N) nature_palette(color_palette);
+                if (event.key.key == SDLK_N) {
+                    nature_palette(color_palette);
+                    draw_mandelbrot(prender, ptexture, pcurrent_width, pcurrent_height, *ppixelBuffer, *pzoom, *pcenter_real, *pcenter_imag, *pmax_iterations, color_palette);
+                }
                 break;
         }
     }
