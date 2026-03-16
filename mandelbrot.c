@@ -119,8 +119,8 @@ void events(int *prunning, SDL_Renderer *prender, SDL_Texture *ptexture, int *pc
                     printf("Mouse clicked at: (%f, %f)\n", clickX, clickY);
 
                     //Metatrpoume raw pixel coordinates se normalized range [0,1]
-                    double normalized_real = clickX / (double)width;
-                    double normalized_im = clickY / (double)height;
+                    double normalized_real = clickX / (double) *pcurrent_width;
+                    double normalized_im = clickY / (double) *pcurrent_height;
                     printf("Normalized cords: (%f, %f)\n", normalized_real, normalized_im);
 
                     //apo normalized sto scale tou mandelbrot pou evala
@@ -140,8 +140,8 @@ void events(int *prunning, SDL_Renderer *prender, SDL_Texture *ptexture, int *pc
                         z = cpow(z, 2) + c;
 
                         //apo normalized kai scaled metatrepoume piso se raw pixel values
-                        clickX = (creal(z) + 2.0)/2.5 * (double)width;
-                        clickY = (cimag(z) + 1.0)/2.0 * (double)height;
+                        clickX = (creal(z) + 2.0)/2.5 * (double)*pcurrent_width;
+                        clickY = (cimag(z) + 1.0)/2.0 * (double)*pcurrent_height;
                         
                         //if it exceeds the limit breaks the loop
                         if(cabs(z) > limit) {
@@ -197,7 +197,7 @@ void events(int *prunning, SDL_Renderer *prender, SDL_Texture *ptexture, int *pc
                 break;
         }
     }
-    /* If any wheel events occurred, apply accumulated factor and redraw once */
+    //If any wheel events occurred, apply accumulated factor and redraw once
     /* if (wheel_scrolled) {
         *pzoom *= wheel_factor;
         int new_w = (int)fmax(1.0f, fmin(width, (*pcurrent_width) * wheel_factor));
