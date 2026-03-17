@@ -18,7 +18,7 @@ SDL_VIDEO_DRIVER=x11 ./mandelbrot
 ## Controls: 
 
 **Left-click** -> Check the current point if its in the mandelbrot set or not.<br>
-**Right-click** -> Zoom <br>
+**Right-click** -> Zoom in <br> <br>
 KeyBinds: <br>
 **L** -> Lava Colors <br>
 **B** -> Ocean Colors <br>
